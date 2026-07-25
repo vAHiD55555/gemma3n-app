@@ -70,12 +70,25 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # Optional: Run flutter analyze or tests to catch errors early
-      - name: Analyze (optional but recommended)
-        run: flutter analyze || true
+      # Run static analysis and fail early if issues exist
+      - name: Analyze (fail on issues)
+        run: flutter analyze
+
+      # Run tests if present (will skip if no test/ folder)
+      - name: Run tests (if any)
+        run: |
+          if [ -d test ]; then
+            echo "Found tests. Running flutter test..."
+            flutter test --coverage
+          else
+            echo "No tests found — skipping flutter test"
+          fi
 
       - name: Build APK
         run: flutter build apk --release
+
+      - name: Build App Bundle (AAB)
+        run: flutter build appbundle --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -84,11 +97,20 @@ jobs:
           path: build/app/outputs/apk/release/app-release.apk
           retention-days: 30
 
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release.aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
       - name: Create Release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
-          files: build/app/outputs/apk/release/app-release.apk
+          files: |
+            build/app/outputs/apk/release/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
           tag_name: v${{ github.run_number }}
           generate_release_notes: true
         env:
