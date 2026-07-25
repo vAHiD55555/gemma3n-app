@@ -50,12 +50,19 @@ jobs:
           echo "JAVA_HOME=$JAVA_HOME"
           flutter config --jdk-dir="$JAVA_HOME"
 
-      - name: Verify environment
+      # Force Gradle to use the JDK17 installed by actions/setup-java
+      - name: Force Gradle to use JDK17
         run: |
-          java -version
-          echo "JAVA_HOME=$JAVA_HOME"
-          flutter --version
-          flutter doctor --verbose || true
+          echo "org.gradle.java.home=$JAVA_HOME" >> android/gradle.properties
+          echo "Wrote org.gradle.java.home to android/gradle.properties"
+
+      - name: Verify environment (save logs)
+        run: |
+          mkdir -p build_logs
+          java -version 2>&1 | tee build_logs/java-version.log
+          echo "JAVA_HOME=$JAVA_HOME" | tee build_logs/java-home.log
+          flutter --version 2>&1 | tee build_logs/flutter-version.log
+          flutter doctor --verbose 2>&1 | tee build_logs/flutter-doctor.log || true
 
       # Cache pub/packages (uses pubspec.lock for key stability)
       - name: Cache Pub
@@ -79,18 +86,27 @@ jobs:
         run: |
           if [ -d test ]; then
             echo "Found tests. Running flutter test..."
-            flutter test --coverage
+            mkdir -p build_logs
+            flutter test --coverage 2>&1 | tee build_logs/flutter-test.log
           else
             echo "No tests found — skipping flutter test"
           fi
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build APK (verbose, save logs)
+        run: |
+          mkdir -p build_logs
+          set -o pipefail
+          flutter build apk --release --verbose 2>&1 | tee build_logs/flutter-build-apk.log
 
-      - name: Build App Bundle (AAB)
-        run: flutter build appbundle --release
+      - name: Build App Bundle (AAB) (verbose, save logs)
+        run: |
+          mkdir -p build_logs
+          set -o pipefail
+          flutter build appbundle --release --verbose 2>&1 | tee build_logs/flutter-build-aab.log
 
+      # Upload build artifacts
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release.apk
@@ -98,14 +114,24 @@ jobs:
           retention-days: 30
 
       - name: Upload AAB
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release.aab
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
 
+      # Always upload logs (so you or I can inspect them even if build fails)
+      - name: Upload CI logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs
+          path: build_logs/
+          retention-days: 30
+
       - name: Create Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
         uses: softprops/action-gh-release@v1
         with:
           files: |
