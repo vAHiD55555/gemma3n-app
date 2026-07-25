@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
@@ -60,7 +59,7 @@ class ImageService {
   Future<String?> _processAndSaveImage(XFile imageFile) async {
     try {
       // Read image bytes
-      final Uint8List imageBytes = await imageFile.readAsBytes();
+      final imageBytes = await imageFile.readAsBytes();
       
       // Check file size
       if (imageBytes.length > _maxFileSizeBytes) {
@@ -91,7 +90,7 @@ class ImageService {
 
       // Save to app directory
       final String savedPath = await _saveImageToAppDirectory(
-        Uint8List.fromList(compressedBytes),
+        compressedBytes,
         path.extension(imageFile.path),
       );
 
@@ -105,7 +104,7 @@ class ImageService {
   }
 
   /// Save image to app directory
-  Future<String> _saveImageToAppDirectory(Uint8List imageBytes, String extension) async {
+  Future<String> _saveImageToAppDirectory(List<int> imageBytes, String extension) async {
     final Directory appDir = await getApplicationDocumentsDirectory();
     final Directory imageDir = Directory('${appDir.path}/chat_images');
     
@@ -133,7 +132,7 @@ class ImageService {
   }
 
   /// Get image bytes from path
-  Future<Uint8List?> getImageBytes(String? imagePath) async {
+  Future<List<int>?> getImageBytes(String? imagePath) async {
     final file = getImageFile(imagePath);
     if (file == null) return null;
     
@@ -239,4 +238,4 @@ class ImageService {
     
     return '${size.toStringAsFixed(i == 0 ? 0 : 1)} ${suffixes[i]}';
   }
-} 
+}
