@@ -11,12 +11,14 @@ android {
     ndkVersion = "27.0.12077973"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // استفاده از Java 17 برای سازگاری با AGP/Gradle جدید
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        // jvmTarget به 17 تغییر می‌کند
+        jvmTarget = "17"
     }
 
     defaultConfig {
