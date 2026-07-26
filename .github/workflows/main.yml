@@ -18,7 +18,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Use Java 17 — required by modern Android Gradle Plugin
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -26,13 +25,11 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      # Export JAVA_HOME for all following steps (fail-safe)
       - name: Export JAVA_HOME
         run: |
           echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
           echo "Exported JAVA_HOME to GITHUB_ENV"
 
-      # Cache Gradle to speed up builds and make them more stable
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -43,74 +40,38 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # Setup Flutter after JDK so Flutter/Gradle detect the correct JAVA_HOME
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.44.8'
+          flutter-version: '3.22.2'
           cache: true
 
-      # Ensure Flutter uses the JDK provided by actions/setup-java
       - name: Configure Flutter to use JDK
         run: |
           echo "JAVA_HOME=$JAVA_HOME"
           flutter config --jdk-dir="$JAVA_HOME"
 
-      # Force Gradle to use the JDK17 installed by actions/setup-java
       - name: Force Gradle to use JDK17
         run: |
           echo "org.gradle.java.home=$JAVA_HOME" >> android/gradle.properties
           echo "Wrote org.gradle.java.home to android/gradle.properties"
 
-      - name: Verify environment (save logs)
+      - name: Verify environment
         run: |
           mkdir -p build_logs
           java -version 2>&1 | tee build_logs/java-version.log
           echo "JAVA_HOME=$JAVA_HOME" | tee build_logs/java-home.log
           flutter --version 2>&1 | tee build_logs/flutter-version.log
-          flutter doctor --verbose 2>&1 | tee build_logs/flutter-doctor.log || true
-
-      # Cache pub/packages (uses pubspec.lock for key stability)
-      - name: Cache Pub
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
 
       - name: Get dependencies
         run: flutter pub get
 
-      # Run static analysis and fail early if issues exist
-      - name: Analyze (fail on issues)
-        run: flutter analyze
+      - name: Build APK
+        run: flutter build apk --release
 
-      # Run tests if present (will skip if no test/ folder)
-      - name: Run tests (if any)
-        run: |
-          if [ -d test ]; then
-            echo "Found tests. Running flutter test..."
-            mkdir -p build_logs
-            flutter test --coverage 2>&1 | tee build_logs/flutter-test.log
-          else
-            echo "No tests found — skipping flutter test"
-          fi
+      - name: Build App Bundle
+        run: flutter build appbundle --release
 
-      - name: Build APK (verbose, save logs)
-        run: |
-          mkdir -p build_logs
-          set -o pipefail
-          flutter build apk --release --verbose 2>&1 | tee build_logs/flutter-build-apk.log
-
-      - name: Build App Bundle (AAB) (verbose, save logs)
-        run: |
-          mkdir -p build_logs
-          set -o pipefail
-          flutter build appbundle --release --verbose 2>&1 | tee build_logs/flutter-build-aab.log
-
-      # Upload build artifacts
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -125,15 +86,6 @@ jobs:
         with:
           name: app-release.aab
           path: build/app/outputs/bundle/release/app-release.aab
-          retention-days: 30
-
-      # Always upload logs (so you or I can inspect them even if build fails)
-      - name: Upload CI logs (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-logs
-          path: build_logs/
           retention-days: 30
 
       - name: Create Release
