@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -104,7 +105,7 @@ class ChatService extends ChangeNotifier {
           : content.trim();
       
       // Generate multimodal response using the new method
-      final response = await _modelManager.generateMultimodalResponse(prompt, imageBytes);
+      final response = await _modelManager.generateMultimodalResponse(prompt, Uint8List.fromList(imageBytes));
       
       if (response != null) {
         final aiMessage = Message.ai(content: response);
